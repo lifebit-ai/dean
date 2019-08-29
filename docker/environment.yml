@@ -1,0 +1,13 @@
+name: dean
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+  - r
+dependencies:
+  - r-base=3.5.1
+  - r-rmarkdown 1.12
+  - bioconductor-deseq2=1.22.1
+  - r-gplots=3.0.1.1
+  - r-rcolorbrewer=1.1_2
+  - r-calibrate 1.7.2

@@ -1,0 +1,194 @@
+---
+title: "Differential expression analysis with STAR and DEseq2"
+output:
+  html_document:
+    df_print: paged
+params:
+  feature_counts: "feature_counts_file"
+  annotation: "annotation_file"
+  workdir: "."
+---
+
+### Using DESeq2 with read counts
+
+By running previous pipelines we got just started to analyse the sequence data from from project accession `SRP033351` available from *SRA*. Sequence data belongs to a study to characterize treatment of respiratory disease under certain treatment (Dexamethasone) using RNA sequencing (Ref).
+
+The pipelines we saw earlier fetch the data from *SRA*, from where *FASTQ* raw sequence data files can be obtained, and passed them to *STAR* read aligner from where we got the *BAM* files available in the results for further analysis.
+
+In the last step of the pipeline, we obtained read counts for all genes in the human genome assembly `hg19`. We can get any interesting genome species available for cloud in *AWS S3 bucket* `igenomes` mantained by *Phil Ewels*.
+
+Once we download the results generated from *STAR pipeline*, we have access to the *R object* that contains the *read counts* obtained using the library *`featureCounts`*. Will start by loading the object that contains the read counts.
+
+```{r setup}
+knitr::opts_knit$set(root.dir = params$workdir)
+```
+
+```{r}
+load(params$feature_counts)
+```
+Then will have to load the information for the samples and its associated metadata, like each condition. And make the read count matrix names match the ones in the sample table.
+
+```{r}
+# Load sample table with metadata
+sampleTable <- read.csv(params$annotation, row.names = 1)
+
+# Remove .bam from the filenames 
+colnames(counts$counts) <- gsub("Aligned\\.out\\.bam$" , "", colnames(counts$counts))
+```
+
+We are going to make sure we analyse the exactly same samples we have between sample table and count data.
+
+```{r}
+# Match and xtract samples for the analysis and keep as a matrix
+countdata <- as.matrix(counts$counts)[, colnames(counts$counts) %in% rownames(sampleTable)]
+head(countdata)
+```
+
+One condition we can try to analyse is simply the treatment used on the samples. For that we will extract which treatment was used on each sample and keep it as the condition:
+
+```{r}
+condition <- sampleTable$dex
+condition
+```
+
+Now that we have prepared the sample and counts read data, we can start using DEseq2 as the library to perform Differential Expression analysis.
+
+```{r}
+library(DESeq2)
+```
+
+First we create the DEseq dataset object using the read counts and the sample data.
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=countdata, colData=sampleTable, design=~ dex)
+dds
+```
+
+Then we can run the Differential Expression pipeline with just the command:
+
+```{r}
+dds <- DESeq(dds)
+```
+
+We can have a look at the dispersion of read counts across genes in all samples
+
+```{r}
+plotDispEsts(dds, main="Dispersion plot")
+```
+
+We will then apply log transformation to the read counts and will try to cluster the samples according the log transform counts
+
+```{r}
+# Regularized log transformation for clustering/heatmaps, etc
+rld <- rlogTransformation(dds)
+head(assay(rld))
+hist(assay(rld))
+
+library(RColorBrewer)
+(mycols <- brewer.pal(8, "Dark2")[1:length(unique(condition))])
+
+sampleDists <- as.matrix(dist(t(assay(rld))))
+```
+
+By calculating distances across samples from log transformed counts we can plot the distance matrix and colour the samples according to the condition.
+
+```{r}
+library(gplots)
+heatmap.2(as.matrix(sampleDists), key=F, trace="none",
+          col=colorpanel(100, "black", "white"),
+          ColSideColors=mycols[condition], RowSideColors=mycols[condition],
+          margin=c(10, 10), main="Sample Distance Matrix")
+```
+
+```{r}
+rld_pca <- function (rld, intgroup = "condition", ntop = 500, colors=NULL, legendpos="bottomleft", main="PCA Biplot", textcx=1, ...) {
+  require(genefilter)
+  require(calibrate)
+  require(RColorBrewer)
+  rv = rowVars(assay(rld))
+  select = order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+  pca = prcomp(t(assay(rld)[select, ]))
+  fac = factor(apply(as.data.frame(colData(rld)[, intgroup, drop = FALSE]), 1, paste, collapse = " : "))
+  if (is.null(colors)) {
+    if (nlevels(fac) >= 3) {
+      colors = brewer.pal(nlevels(fac), "Paired")
+    }   else {
+      colors = c("black", "red")
+    }
+  }
+  pc1var <- round(summary(pca)$importance[2,1]*100, digits=1)
+  pc2var <- round(summary(pca)$importance[2,2]*100, digits=1)
+  pc1lab <- paste0("PC1 (",as.character(pc1var),"%)")
+  pc2lab <- paste0("PC1 (",as.character(pc2var),"%)")
+  plot(PC2~PC1, data=as.data.frame(pca$x), bg=colors[fac], pch=21, xlab=pc1lab, ylab=pc2lab, main=main, ...)
+  with(as.data.frame(pca$x), textxy(PC1, PC2, labs=rownames(as.data.frame(pca$x)), cex=textcx))
+  legend(legendpos, legend=levels(fac), col=colors, pch=20)
+}
+
+```
+
+We can easily use a PCA visualization to see how the variation separates samples, but also how mixed
+
+```{r}
+rld_pca(rld, colors=mycols, intgroup="dex", xlim=c(-75, 35))
+```
+
+On last steps, we want to be able to filter and to extract genes based on certain thresholds. We can apply filter in order to filter for p-values and adjusted p-values on top of the results table.
+
+```{r}
+res <- results(dds)
+table(res$padj<0.05)
+
+## Order by adjusted p-value
+res <- res[order(res$padj), ]
+
+## Merge with normalized count data
+resdata <- merge(as.data.frame(res), as.data.frame(counts(dds, normalized=TRUE)), by="row.names", sort=FALSE)
+names(resdata)[1] <- "Gene"
+head(resdata)
+## Write results
+write.csv(resdata, file="diffexpr-results.csv")
+```
+
+There are also several plots available for quality control on top of the results we got that we can explore, like the histogram of significance levels.
+
+```{r}
+hist(res$pvalue, breaks=50, col="grey")
+```
+
+```{r}
+maplot <- function (res, thresh=0.05, labelsig=TRUE, textcx=1, ...) {
+  with(res, plot(baseMean, log2FoldChange, pch=20, cex=.5, log="x", ...))
+  with(subset(res, padj<thresh), points(baseMean, log2FoldChange, col="red", pch=20, cex=1.5))
+  if (labelsig) {
+    require(calibrate)
+    with(subset(res, padj<thresh), textxy(baseMean, log2FoldChange, labs=Gene, cex=textcx, col=2))
+  }
+}
+```
+
+Also the MA plot, where we can see how the log fold changes compare against the mean averages across genes
+
+```{r}
+maplot(resdata, main="MA Plot")
+```
+
+The last plot we show is the volcano plot, where we can visualize what's the relationship between log fold changes and significance levels in our test.
+
+```{r}
+volcanoplot <- function (res, lfcthresh=2, sigthresh=0.05, main="Volcano Plot", legendpos="bottomright", labelsig=TRUE, textcx=1, ...) {
+  with(res, plot(log2FoldChange, -log10(pvalue), pch=20, main=main, ...))
+  with(subset(res, padj<sigthresh ), points(log2FoldChange, -log10(pvalue), pch=20, col="red", ...))
+  with(subset(res, abs(log2FoldChange)>lfcthresh), points(log2FoldChange, -log10(pvalue), pch=20, col="orange", ...))
+  with(subset(res, padj<sigthresh & abs(log2FoldChange)>lfcthresh), points(log2FoldChange, -log10(pvalue), pch=20, col="green", ...))
+  if (labelsig) {
+    require(calibrate)
+    with(subset(res, padj<sigthresh & abs(log2FoldChange)>lfcthresh), textxy(log2FoldChange, -log10(pvalue), labs=Gene, cex=textcx, ...))
+  }
+  legend(legendpos, xjust=1, yjust=1, legend=c(paste("FDR<",sigthresh,sep=""), paste("|LogFC|>",lfcthresh,sep=""), "both"), pch=20, col=c("red","orange","green"))
+}
+```
+
+```{r}
+volcanoplot(resdata, lfcthresh=2, sigthresh=0.01, textcx=.8, xlim=c(-2.3, 2))
+```
