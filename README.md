@@ -1,6 +1,6 @@
 # dean
 
-Differential Expression Analysis Nextflow pipeline using DEseq2
+**D**ifferential **E**xpression **A**nalysis **N**extflow pipeline using DEseq2
 
 ## Example usage:
 ```bash

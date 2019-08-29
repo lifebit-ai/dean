@@ -6,7 +6,6 @@ output:
 params:
   feature_counts: "feature_counts_file"
   annotation: "annotation_file"
-  workdir: "."
 ---
 
 ### Using DESeq2 with read counts
@@ -18,10 +17,6 @@ The pipelines we saw earlier fetch the data from *SRA*, from where *FASTQ* raw s
 In the last step of the pipeline, we obtained read counts for all genes in the human genome assembly `hg19`. We can get any interesting genome species available for cloud in *AWS S3 bucket* `igenomes` mantained by *Phil Ewels*.
 
 Once we download the results generated from *STAR pipeline*, we have access to the *R object* that contains the *read counts* obtained using the library *`featureCounts`*. Will start by loading the object that contains the read counts.
-
-```{r setup}
-knitr::opts_knit$set(root.dir = params$workdir)
-```
 
 ```{r}
 load(params$feature_counts)
