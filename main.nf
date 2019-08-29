@@ -28,23 +28,23 @@ Channel
 
 process deseq2 {
   tag "$feature_counts"
-	publishDir params.outdir, mode: 'copy'
+  publishDir params.outdir, mode: 'copy'
 
-	input:
-	file(feature_counts) from feature_counts
+  input:
+  file(feature_counts) from feature_counts
   file(annotation) from annotation
   file(rmarkdown) from rmarkdown
 
-	output:
-	file('MultiQC/multiqc_report.html') into results
+  output:
+  file('MultiQC/multiqc_report.html') into results
 
-	script:
-	"""
+  script:
+  """
   workdir="\$(pwd)"
   cp $rmarkdown tmp && mv tmp $rmarkdown 
 
   R -e "rmarkdown::render('${rmarkdown}', params = list(feature_counts='${feature_counts}',annotation='${annotation}',workdir='\${workdir}'))"
 
   mkdir MultiQC && mv DE_with_DEseq2.html MultiQC/multiqc_report.html
-	"""
+  """
 }
