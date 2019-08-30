@@ -30,18 +30,23 @@ params$condition
 We will be loading & preprocessing the feature counts file:
 
 ```{r}
-counts <- read.csv(params$feature_counts,
+if (params$feature_counts == "counts.RData") {
+  load(params$feature_counts)
+  counts <- counts$counts
+} else {
+  counts <- read.csv(params$feature_counts,
                            sep              = "\t",
                            header           = TRUE, 
                            stringsAsFactors = FALSE, 
                            check.names      = FALSE);
 
-# assign the rownames to the gene ID's & remove uncessary columns
-rownames(counts) <- counts[,1]
-counts <- counts[, -c(1:2)]
+  # assign the rownames to the gene ID's & remove uncessary columns
+  rownames(counts) <- counts[,1]
+  counts <- counts[, -c(1:2)]
 
-# replace colnames to just the SRA id
-colnames(counts) <- sub("\\_.*", "", colnames(counts))
+  # replace colnames to just the SRA id
+  colnames(counts) <- sub("\\_.*", "", colnames(counts))
+}
 ```
 
 ### 2. The loading the annotation
