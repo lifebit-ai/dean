@@ -25,7 +25,7 @@ params$condition
 
 ## Preprocessing
 
-### 1. The loading the feature counts
+### 1. Loading the feature counts
 
 We will be loading & preprocessing the feature counts file:
 
@@ -49,7 +49,7 @@ if (params$feature_counts == "counts.RData") {
 }
 ```
 
-### 2. The loading the annotation
+### 2. Loading the annotation
 Then will have to load the information for the annotation. And make the read count matrix names match the ones in the sample table.
 
 ```{r}
