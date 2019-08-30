@@ -11,15 +11,15 @@
 
 Channel
   .fromPath(params.feature_counts)
-  .ifEmpty { exit 1, "Feature counts file not found: ${params.feature_counts}" }
+  .ifEmpty { exit 1, "Feature counts TSV file not found: ${params.feature_counts}" }
   .set { feature_counts }
 Channel
   .fromPath(params.annotation)
-  .ifEmpty { exit 1, "Sample groups annotation file not found: ${params.annotation}" }
+  .ifEmpty { exit 1, "Sample groups annotation CSV file not found: ${params.annotation}" }
   .set { annotation  }
 Channel
   .fromPath(params.rmarkdown)
-  .ifEmpty { exit 1, "Sample groups annotation file not found: ${params.rmarkdown}" }
+  .ifEmpty { exit 1, "R Markdown script not found: ${params.rmarkdown}" }
   .set { rmarkdown  }
 
 /*--------------------------------------------------
