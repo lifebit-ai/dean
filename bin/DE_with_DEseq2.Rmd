@@ -6,6 +6,7 @@ output:
 params:
   feature_counts: "feature_counts_file"
   annotation: "annotation_file"
+  condition: "condition"
 ---
 
 ### Using DESeq2 with read counts
@@ -19,7 +20,15 @@ In the last step of the pipeline, we obtained read counts for all genes in the h
 Once we download the results generated from *STAR pipeline*, we have access to the *R object* that contains the *read counts* obtained using the library *`featureCounts`*. Will start by loading the object that contains the read counts.
 
 ```{r}
-load(params$feature_counts)
+counts <- read.csv(params$feature_counts,
+                           sep              = "\t",
+                           header           = TRUE, 
+                           stringsAsFactors = FALSE, 
+                           check.names      = FALSE);
+rownames(counts) <- counts[,1]
+counts <- counts[, -c(1:2)]
+# replace colnames to just the SRA id
+# colnames(counts) <- sub("\\_.*", "", colnames(counts))
 ```
 Then will have to load the information for the samples and its associated metadata, like each condition. And make the read count matrix names match the ones in the sample table.
 
@@ -28,21 +37,21 @@ Then will have to load the information for the samples and its associated metada
 sampleTable <- read.csv(params$annotation, row.names = 1)
 
 # Remove .bam from the filenames 
-colnames(counts$counts) <- gsub("Aligned\\.out\\.bam$" , "", colnames(counts$counts))
+colnames(counts) <- gsub("Aligned\\.out\\.bam$" , "", colnames(counts))
 ```
 
 We are going to make sure we analyse the exactly same samples we have between sample table and count data.
 
 ```{r}
 # Match and xtract samples for the analysis and keep as a matrix
-countdata <- as.matrix(counts$counts)[, colnames(counts$counts) %in% rownames(sampleTable)]
+countdata <- as.matrix(counts)[, colnames(counts) %in% rownames(sampleTable)]
 head(countdata)
 ```
 
 One condition we can try to analyse is simply the treatment used on the samples. For that we will extract which treatment was used on each sample and keep it as the condition:
 
 ```{r}
-condition <- sampleTable$dex
+condition <- unlist(sampleTable[params$condition])
 condition
 ```
 
@@ -55,7 +64,7 @@ library(DESeq2)
 First we create the DEseq dataset object using the read counts and the sample data.
 
 ```{r}
-dds <- DESeqDataSetFromMatrix(countData=countdata, colData=sampleTable, design=~ dex)
+dds <- DESeqDataSetFromMatrix(countData=countdata, colData=sampleTable, design= as.formula(paste("~", params$condition)))
 dds
 ```
 
@@ -125,7 +134,7 @@ rld_pca <- function (rld, intgroup = "condition", ntop = 500, colors=NULL, legen
 We can easily use a PCA visualization to see how the variation separates samples, but also how mixed
 
 ```{r}
-rld_pca(rld, colors=mycols, intgroup="dex", xlim=c(-75, 35))
+rld_pca(rld, colors=mycols, intgroup=params$condition, xlim=c(-75, 35))
 ```
 
 On last steps, we want to be able to filter and to extract genes based on certain thresholds. We can apply filter in order to filter for p-values and adjusted p-values on top of the results table.

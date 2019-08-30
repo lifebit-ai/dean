@@ -43,7 +43,7 @@ process deseq2 {
   # copy the rmarkdown into the pwd
   cp $rmarkdown tmp && mv tmp $rmarkdown
 
-  R -e "rmarkdown::render('${rmarkdown}', params = list(feature_counts='${feature_counts}',annotation='${annotation}'))"
+  R -e "rmarkdown::render('${rmarkdown}', params = list(feature_counts='${feature_counts}',annotation='${annotation}',condition='${params.condition}'))"
 
   mkdir MultiQC && mv DE_with_DEseq2.html MultiQC/multiqc_report.html
   """
