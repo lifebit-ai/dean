@@ -36,7 +36,7 @@ process deseq2 {
   file(rmarkdown) from rmarkdown
 
   output:
-  file('MultiQC/multiqc_report.html') into results
+  file("{MultiQC,diffexpr-results.csv}") into results
 
   script:
   """
