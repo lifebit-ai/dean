@@ -46,6 +46,9 @@ if (params$feature_counts == "counts.RData") {
 
   # replace colnames to just the SRA id
   colnames(counts) <- sub("\\_.*", "", colnames(counts))
+
+  # order the columns
+  counts <- counts[ , order(names(counts))]
 }
 ```
 
@@ -58,6 +61,9 @@ sampleTable <- read.csv(params$annotation, row.names = 1)
 
 # Remove .bam from the filenames 
 colnames(counts) <- gsub("Aligned\\.out\\.bam$" , "", colnames(counts))
+
+# Order the rows
+sampleTable <- sampleTable[ order(row.names(sampleTable)), ]
 ```
 
 We are going to make sure we analyse the exactly same samples we have between sample table and count data.
@@ -68,7 +74,7 @@ countdata <- as.matrix(counts)[, colnames(counts) %in% rownames(sampleTable)]
 head(countdata)
 ```
 
-### 3. Setting the conditions of interest
+### 3. Setting the condition of interest
 
 Here we select/extract the one condition we want to analyse, eg the treatment was used on each sample:
 
